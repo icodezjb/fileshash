@@ -4,6 +4,7 @@ package main
 import (
 	"bufio"
 	"crypto/sha1"
+	"flag"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -32,13 +33,17 @@ func file_sha1(filename string) string {
 func main() {
 
 	var outputWriter *bufio.Writer
-	dir_list, e := ioutil.ReadDir("I:/go_project/src/test")
+	var DIR string
+	flag.StringVar(&DIR, "dir", "./", "the destination directory")
+	flag.Parse()
+
+	dir_list, e := ioutil.ReadDir(DIR)
 	if e != nil {
-		fmt.Printf("read the dir(I:/go_project/src/test) error")
+		fmt.Printf("read the dir(DIR) error\n")
 		return
 	}
-
-	if nil == os.Chdir("I:/go_project/src/test") {
+	fmt.Println(DIR)
+	if nil == os.Chdir(DIR) {
 		/* reclear .result file */
 		outputfile, openerr := os.Create(".result")
 		if openerr != nil {
