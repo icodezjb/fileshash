@@ -10,9 +10,10 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"time"
 )
 
-const DEBUG = true
+const DEBUG = false //true
 
 func file_sha1(filename string) string {
 	var ret string
@@ -78,6 +79,7 @@ func recursion_dir(dirname string, pattern *string, outputWriter *bufio.Writer) 
 }
 
 func main() {
+	t1 := time.Now() // get current time
 
 	var outputWriter *bufio.Writer
 	var DIR string
@@ -112,4 +114,5 @@ func main() {
 	}
 
 	outputWriter.Flush()
+	fmt.Println("process elapsed: ", time.Since(t1))
 }
