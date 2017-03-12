@@ -16,6 +16,7 @@ import (
 )
 
 const DEBUG = false // true
+const MAX_GR = 16
 
 var mutex sync.Mutex
 var count int32
@@ -67,8 +68,11 @@ func recursion_dir(dirname string, pattern *string, complete chan<- bool, output
 			if DEBUG {
 				fmt.Printf("%s is directory\n", v.Name())
 			}
-			//workgroup.Add(1)
-			go recursion_dir(path, pattern, complete, outputWriter)
+			if count <= MAX_GR {
+				go recursion_dir(path, pattern, complete, outputWriter)
+			} else {
+				recursion_dir(path, pattern, complete, outputWriter)
+			}
 		case false:
 			/* skip thess files*/
 			if (".result" == v.Name()) || ((v.Mode() & os.ModeType) != 0) {
@@ -126,7 +130,7 @@ func main() {
 	if isMatched {
 		fmt.Println("ignore thr dir:%s", DIR)
 	} else {
-		complete = make(chan bool, 1024)
+		complete = make(chan bool, MAX_GR)
 		go recursion_dir(DIR, &PATTERN, complete, outputWriter)
 		for c := range complete {
 			/*c, isclose := <-complete
