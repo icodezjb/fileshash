@@ -10,10 +10,14 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 )
 
-const DEBUG = false //true
+const DEBUG = false // true
+
+var mutex sync.Mutex
+var workgroup sync.WaitGroup
 
 func file_sha1(filename string) string {
 	var ret string
@@ -35,13 +39,14 @@ func file_sha1(filename string) string {
 }
 
 func recursion_dir(dirname string, pattern *string, outputWriter *bufio.Writer) {
+	defer workgroup.Done()
 	dir_list, e := ioutil.ReadDir(dirname)
 	if e != nil {
-		fmt.Printf("read the dir(%s) error\n", dirname)
+		fmt.Printf("read the dir(%s) error,%s\n", dirname, e)
 		return
 	}
 
-	for i, v := range dir_list {
+	for _, v := range dir_list {
 		isMatched, _ := filepath.Match(*pattern, v.Name())
 		if isMatched {
 			continue
@@ -49,13 +54,17 @@ func recursion_dir(dirname string, pattern *string, outputWriter *bufio.Writer) 
 
 		var outputstring string
 		path := fmt.Sprintf("%s/%s", dirname, v.Name())
+		if DEBUG {
+			fmt.Println(path)
+		}
 
 		switch v.IsDir() {
 		case true:
 			if DEBUG {
 				fmt.Printf("%s is directory\n", v.Name())
 			}
-			recursion_dir(path, pattern, outputWriter)
+			workgroup.Add(1)
+			go recursion_dir(path, pattern, outputWriter)
 		case false:
 			/* skip thess files*/
 			if (".result" == v.Name()) || ((v.Mode() & os.ModeType) != 0) {
@@ -66,8 +75,10 @@ func recursion_dir(dirname string, pattern *string, outputWriter *bufio.Writer) 
 			hashstring := file_sha1(path)
 			if "" != hashstring {
 				/*wins:\r\n, unix:\n*/
-				outputstring = fmt.Sprintf("%d,%s,%s,%d,%t\r\n", i, v.Name(), hashstring, v.Size(), ((v.Mode() & os.ModeType) == 0))
+				outputstring = fmt.Sprintf("%s,%s,%d\r\n", v.Name(), hashstring, v.Size())
+				mutex.Lock()
 				outputWriter.WriteString(outputstring)
+				mutex.Unlock()
 				if DEBUG {
 					fmt.Println(outputstring)
 				}
@@ -86,7 +97,7 @@ func main() {
 	var RESULT string
 	var PATTERN string
 
-	flag.StringVar(&DIR, "d", "./", "the destination directory")
+	flag.StringVar(&DIR, "d", ".", "the destination directory")
 	flag.StringVar(&RESULT, "o", "./.result", "output path of the reslut file")
 	flag.StringVar(&PATTERN, "i", "", "the ignore dirs or/and files")
 
@@ -110,9 +121,12 @@ func main() {
 	if isMatched {
 		fmt.Println("ignore thr dir:%s", DIR)
 	} else {
-		recursion_dir(DIR, &PATTERN, outputWriter)
+		workgroup.Add(1)
+		go recursion_dir(DIR, &PATTERN, outputWriter)
+		workgroup.Wait()
 	}
 
 	outputWriter.Flush()
+
 	fmt.Println("process elapsed: ", time.Since(t1))
 }
